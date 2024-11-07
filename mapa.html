@@ -177,19 +177,32 @@ baselayers["Google"].addTo(map);
 
     // Função para exibir as camadas filtradas no dropdown
     function displaySuggestions(filteredLayers) {
-        const suggestions = document.getElementById("suggestions");
-        suggestions.innerHTML = '';
-        filteredLayers.forEach(layer => {
-            const name = layer.querySelector("Name").textContent;
-            const title = layer.querySelector("Title").textContent;
-            const item = document.createElement("a");
-            item.className = "dropdown-item";
-            item.href = "#";
-            item.textContent = title;
-            item.onclick = () => selectLayer(name, title);
-            suggestions.appendChild(item);
-        });
-    }
+    const suggestions = document.getElementById("suggestions");
+    suggestions.innerHTML = ''; // Clear previous suggestions
+    
+    filteredLayers.forEach(layer => {
+        const name = layer.querySelector("Name").textContent;
+        const title = layer.querySelector("Title").textContent;
+        
+        const item = document.createElement("a");
+        item.className = "dropdown-item";
+        item.href = "#";
+        item.textContent = title;
+
+        // Create a function to handle the event
+        function handleClickOrTap(event) {
+            event.preventDefault(); // Prevent default behavior (e.g., following the href)
+            selectLayer(name, title);
+        }
+
+        // Attach both event listeners
+        item.addEventListener('click', handleClickOrTap); // Mouse click
+        item.addEventListener('touchstart', handleClickOrTap); // Touch events (for mobile/tablet)
+
+        // Append item to suggestions list
+        suggestions.appendChild(item);
+    });
+}
 
 // Função de busca e filtro de camadas
 // Fetch available WMS layers
