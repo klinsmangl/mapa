@@ -150,11 +150,11 @@
             item.onclick = () => selectLayer(name, title);
             suggestions.appendChild(item);
         });
-        suggestions.classList.add("show");
     }
 
 // Função de busca e filtro de camadas
 fetchGetCapabilities().then(() => {
+    displaySuggestions(layers);
     const searchBox = document.getElementById("layerSearch");
     searchBox.addEventListener("input", () => {
         const searchTerm = searchBox.value.toLowerCase();
