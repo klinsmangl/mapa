@@ -126,19 +126,21 @@
     });
 
     var baselayers = {
-    "Tile Layer 1": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+    "Google": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
         maxZoom: 22
     }),
-    "Tile Layer 2": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 22
     }),
-    "Tile Layer 3": L.tileLayer('https://geonetworkdownload.sefin.fortaleza.ce.gov.br/geonetwork/download/ortofoto_2016/2016_COG_jpeg_fn.tif', {
-        band: 0,
-        geoJSON: true, 
-        tileSize: 256,
-        maxZoom: 22
+    "Ortofoto": L.tileLayer.wms     ('https://geoserver.sefin.fortaleza.ce.gov.br/geoserver/IMAGEAMENTO/wms', {
+    layers: 'IMAGEAMENTO:ortofoto_2016',
+    format: 'image/png',
+    transparent: true,
+    minNativeZoom:11,
+    maxZoom: 22
     })
-};
+}
+
 
 var overlays = {};
 
@@ -147,7 +149,7 @@ L.control.layers(baselayers, overlays, {
 }).addTo(map);;
 
 // Corrected: Use 'baselayers' instead of 'baseLayers'
-baselayers["Tile Layer 1"].addTo(map);
+baselayers["Google"].addTo(map);
 
     // Define a ordem das camadas usando o z-index
     map.createPane('wmsPane').style.zIndex = 650;
@@ -155,7 +157,7 @@ baselayers["Tile Layer 1"].addTo(map);
     map.createPane('popupPane').style.zIndex = 750;
 
     // Define a URL base para o serviço WMS
-    const wmsBaseUrl = "https://geoserverhomo23.sefin.fortaleza.ce.gov.br/geoserver/wms?";
+    const wmsBaseUrl = "https://geoserver.sefin.fortaleza.ce.gov.br/geoserver/wms?";
 
     let currentLayer = null;
     let geoJsonLayer = null;
@@ -236,7 +238,7 @@ fetchGetCapabilities().then(() => {
 
 // Function for address search (moved here)
 function performAddressSearch(query) {
-    const api = `https://nominatim.openstreetmap.org/search?format=geojson&limit=5&city=${encodeURI(query)}`;
+    const api = `https://nominatim.openstreetmap.org/search?format=geojson&q=${encodeURI(query)}`;
 
     // Abortable fetch for cancelling previous requests
     currentRequest = new AbortController();
