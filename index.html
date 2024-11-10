@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Teste</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tomickigrzegorz/autocomplete@2.0.2/dist/css/autocomplete.min.css"/>
+    <script src="https://cdn.jsdelivr.net/gh/tomickigrzegorz/autocomplete@2.0.2/dist/js/autocomplete.min.js"></script>
+<style>
+    /* Make the map fill the entire viewport */
+    #map {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 100vh; /* Full viewport height */
+        z-index: -1; /* Ensure map stays in the background */
+    }
+
+    .leaflet-popup-content-wrapper {
+        background-color: rgba(255, 255, 255, .8);
+    }
+</style>
+
+</head>
+<body>
+<!-- Container for the entire page -->
+<div class="container my-3 col-lg-8 min-vh-98 d-flex flex-column justify-content-between">
+    <!-- Centralized row with spacing -->
+    <div class="row justify-content-center w-100">
+        <!-- Column that adapts to medium and larger screens -->
+        <div class="col-md-12">
+            <!-- Card for search section to create visual separation -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <!-- Clear Layers Button and Search Toggle -->
+                        <span>
+                            <button type="button" class="btn btn-light" data-bs-toggle="offcanvas" data-bs-target="#offcanvasLegend">
+                                <i class="bi bi-list"></i>
+                            </button>
+                            <button class="btn btn-light" type="button" data-bs-toggle="collapse" data-bs-target="#pesquisa">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </span>
+                        
+                        <!-- Title: "Adicione uma Camada" -->
+                        <h4 class="card-title" id="current-layer-name">Adicione uma Camada</h4>
+
+                        <!-- Clear Layers Button -->
+                        <button id="clearLayersBtn" type="button" class="btn btn-danger">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+
+                    <!-- Search input field within a dropdown context -->
+                    
+                <!-- Update the search input field to add the spinner icon -->
+                <div class="collapse" id="pesquisa">
+                    <div class="dropdown position-relative">
+                        <input type="text" id="layerAddressSearch" class="form-control my-3" placeholder="Search for a layer or '> Address'" aria-label="Layer or Address search" data-bs-toggle="dropdown" aria-expanded="false">
+                        <!-- Spinner for loading indication -->
+                        <div id="spinner" class="spinner-border text-primary position-absolute" role="status" style="display: none; top: 10px; right: 20px; width: 1rem; height: 1rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <!-- Suggestions dropdown -->
+                        <ul class="dropdown-menu w-100" id="suggestions" aria-labelledby="layerAddressSearch" style="max-height: 400px; overflow-y: auto;"></ul>
+                    </div>
+                </div>
+
+                </div>
+            </div>
+            <!-- Slider de Opacidade-->
+            <div id="layer-info position-relative">
+                <div class="bg-transparent">
+                    <div>
+                        <input type="range" class="form-range" id="opacitySlider" min="0" max="1" step="0.1" value="1">
+                    </div>
+                </div>
+                <!-- Coordinates display below layer info -->
+            <div id="rodape" class="position-absolute bottom-0 start-50 translate-middle-x">
+                <span id="coordinates-display">Posição do Cursor: N/A </span><span id="zoom-display">, Zoom: 10</span>
+            </div>
+            </div>
+        </div> <!-- End of col-md-12 -->
+    </div> <!-- End of row -->
+</div> <!-- End of container -->
+ 
+
+    <!-- Map container, responsive full width with height -->
+    <div id="map" class="container-fluid"></div>
+
+  <!-- Offcanvas -->
+  <div class="offcanvas offcanvas-start bg-light.bg-gradient" tabindex="-1" id="offcanvasLegend" aria-labelledby="offcanvasLegendLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="offcanvasLegendLabel">Legenda</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="legend-container">
+      </div>
+    </div>
+  </div>
+    
+
+<script>
+    // Inicializa o mapa e define a posição inicial e o nível de zoom
+    const map = L.map('map', {
+        minZoom: 8,
+        maxZoom: 22,
+        zoomControl: false
+    }).setView([-3.71722, -38.5434], 10);
+
+    // Adiciona controle de escala ao mapa
+    L.control.scale().addTo(map);
+
+    // Atualiza o indicador de zoom sempre que o nível de zoom mudar
+    map.on('zoomend', () => {
+        document.getElementById('zoom-display').textContent = `, Zoom: ${map.getZoom()}`;
+    });
+
+    var baselayers = {
+    "Google": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 22
+    }),
+    "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 22
+    }),
+    "Ortofoto": L.tileLayer.wms     ('https://geoserver.sefin.fortaleza.ce.gov.br/geoserver/IMAGEAMENTO/wms', {
+    layers: 'IMAGEAMENTO:ortofoto_2016',
+    format: 'image/png',
+    transparent: true,
+    minNativeZoom:11,
+    maxZoom: 22
+    })
+}
+
+
+var overlays = {};
+
+L.control.layers(baselayers, overlays, {
+    position: 'bottomright'  // Move the control to the bottom-right corner
+}).addTo(map);;
+
+// Corrected: Use 'baselayers' instead of 'baseLayers'
+baselayers["Google"].addTo(map);
+
+    // Define a ordem das camadas usando o z-index
+    map.createPane('wmsPane').style.zIndex = 650;
+    map.createPane('geoJsonPane').style.zIndex = 700;
+    map.createPane('popupPane').style.zIndex = 750;
+
+    // Define a URL base para o serviço WMS
+    const wmsBaseUrl = "https://geoserver.sefin.fortaleza.ce.gov.br/geoserver/wms?";
+
+    let currentLayer = null;
+    let geoJsonLayer = null;
+    let layers = [];
+
+    // Função para obter as camadas disponíveis no serviço WMS
+    async function fetchGetCapabilities() {
+        try {
+            const response = await fetch(`${wmsBaseUrl}request=GetCapabilities`);
+            const text = await response.text();
+            const xml = new window.DOMParser().parseFromString(text, "text/xml");
+            layers = Array.from(xml.querySelectorAll("Layer > Layer"));
+        } catch (error) {
+            console.error("Erro ao obter as camadas WMS:", error);
+        }
+    }
+
+    // Função para exibir as camadas filtradas no dropdown
+    function displaySuggestions(filteredLayers) {
+    const suggestions = document.getElementById("suggestions");
+    suggestions.innerHTML = ''; // Clear previous suggestions
+    
+    filteredLayers.forEach(layer => {
+        const name = layer.querySelector("Name").textContent;
+        const title = layer.querySelector("Title").textContent;
+        
+        const item = document.createElement("a");
+        item.className = "dropdown-item";
+        item.href = "#";
+        item.textContent = title;
+
+        // Create a function to handle the event
+        function handleClickOrTap(event) {
+            event.preventDefault(); // Prevent default behavior (e.g., following the href)
+            selectLayer(name, title);
+        }
+
+        // Attach both event listeners
+        item.addEventListener('click', handleClickOrTap); // Mouse click
+        item.addEventListener('touchstart', handleClickOrTap); // Touch events (for mobile/tablet)
+
+        // Append item to suggestions list
+        suggestions.appendChild(item);
+    });
+}
+
+// Função de busca e filtro de camadas
+// Fetch available WMS layers
+
+// Fetch available WMS layers
+fetchGetCapabilities().then(() => {
+    displaySuggestions(layers);
+    
+    // Reference the combined search input
+    const searchBox = document.getElementById("layerAddressSearch");
+    const spinner = document.getElementById("spinner");
+    let debounceTimer;
+    let currentRequest = null;
+
+    searchBox.addEventListener("input", () => {
+        const searchTerm = searchBox.value.trim();
+        
+        // Clear previous debounce timer and cancel previous request if any
+        clearTimeout(debounceTimer);
+        if (currentRequest) {
+            currentRequest.abort();
+            currentRequest = null;
+        }
+
+        if (searchTerm.startsWith(">")) {
+            // Show spinner and debounce the request for address search
+            spinner.style.display = "block";
+            debounceTimer = setTimeout(() => {
+                const addressQuery = searchTerm.slice(1).trim(); // Remove ">" and trim whitespace
+                if (addressQuery.length >= 2) {
+                    performAddressSearch(addressQuery);
+                } else {
+                    spinner.style.display = "none"; // Hide spinner if query is too short
+                }
+            }, 1000); // 1 second debounce delay
+        } else {
+            // Layer search (immediate filtering, no debounce)
+            spinner.style.display = "none"; // Hide spinner for layer search
+            const filteredLayers = layers.filter(layer =>
+                layer.querySelector("Title").textContent.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            displaySuggestions(filteredLayers);
+        }
+    });
+});
+
+// Function for address search (moved here)
+function performAddressSearch(query) {
+    const api = `https://nominatim.openstreetmap.org/search?format=geojson&q=${encodeURI(query)}`;
+
+    // Abortable fetch for cancelling previous requests
+    currentRequest = new AbortController();
+    fetch(api, { signal: currentRequest.signal })
+        .then(response => response.json())
+        .then(data => {
+            const suggestions = document.getElementById("suggestions");
+            suggestions.innerHTML = data.features.map(feature => `
+                <li class="dropdown-item" onclick="selectAddress(${feature.geometry.coordinates[1]}, ${feature.geometry.coordinates[0]}, '${feature.properties.display_name}')">
+                    ${feature.properties.display_name}
+                </li>
+            `).join("");
+        })
+        .catch(error => {
+            if (error.name !== "AbortError") {
+                console.error("Error fetching address:", error);
+            }
+        })
+        .finally(() => {
+            spinner.style.display = "none"; // Hide spinner once request completes
+            currentRequest = null;
+        });
+}
+
+// Function to handle address selection
+let currentMarker = null; // Variável para armazenar o marcador atual
+
+// Função para selecionar o endereço e adicionar o marcador
+function selectAddress(lat, lng, displayName) {
+    // Movimenta o mapa para a localização especificada
+    map.flyTo([lat, lng], 18);
+
+    // Se já existir um marcador, removê-lo antes de adicionar o novo
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    // Cria o novo marcador
+    currentMarker = L.marker([lat, lng], { title: displayName });
+    
+    // Adiciona o marcador ao mapa e exibe o popup
+    currentMarker.addTo(map).bindPopup(displayName).openPopup();
+}
+
+
+    //função de geocode-------------------------------------------------------------------------------------------------
+
+    //-------------------------------------------------------------------------------------------------
+
+    // Helper function to get URL parameters
+    function getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    // Modify selectLayer function to update URL with layerName
+    function selectLayer(layerName, layerTitle) {
+        // Update the URL with the layerName parameter
+        const url = new URL(window.location);
+        url.searchParams.set('layerName', layerName);
+        window.history.pushState({}, '', url);
+
+        // Load the selected layer (existing code for loading the layer)
+        document.getElementById("layerAddressSearch").value = '';
+        document.getElementById("suggestions").classList.remove("show");
+
+        const selectedLayer = layers.find(layer => layer.querySelector("Name").textContent === layerName);
+        const bbox = selectedLayer.querySelector("EX_GeographicBoundingBox");
+
+        if (currentLayer) map.removeLayer(currentLayer);
+        if (geoJsonLayer) map.removeLayer(geoJsonLayer);
+
+        currentLayer = L.tileLayer.wms(`${wmsBaseUrl}request=GetMap`, {
+            layers: layerName,
+            format: 'image/png',
+            transparent: true,
+            maxZoom: 22,
+            pane: 'wmsPane'
+        }).addTo(map);
+
+        map.fitBounds([
+            [parseFloat(bbox.querySelector("southBoundLatitude").textContent), parseFloat(bbox.querySelector("westBoundLongitude").textContent)],
+            [parseFloat(bbox.querySelector("northBoundLatitude").textContent), parseFloat(bbox.querySelector("eastBoundLongitude").textContent)]
+        ]);
+
+        document.getElementById("current-layer-name").textContent = layerTitle;
+    
+        // Definindo os parâmetros de requisição para o GeoServer
+        const legendParams = {
+        layers: layerName,   // Nome da camada
+        format: 'image/png',            // Formato da imagem
+        transparent: true,              // Transparência para a legenda
+        width: 20,                      // Largura da legenda
+        height: 20,                     // Altura da legenda
+        style: '',                      // Estilo da camada, se necessário
+        legend_options: 'dpi:120;forceLabels:on;fontAntiAliasing:true;countMatched:false;fontName:sans;hideEmptyRules:false;forceTitles:off' // Forçar exibição de rótulos
+        };
+
+        // Função para criar o URL da requisição WMS para a legenda
+        function getLegendUrl(params) {
+        return `${wmsBaseUrl}REQUEST=GetLegendGraphic&VERSION=1.1.0&FORMAT=${params.format}&WIDTH=${params.width}&HEIGHT=${params.height}&STYLE=${params.style}&LAYER=${params.layers}&LEGEND_OPTIONS=${params.legend_options}&TRANSPARENT=${params.transparent}`;
+        }
+
+        // Função para carregar e exibir a legenda
+        function loadLegend() {
+        const legendUrl = getLegendUrl(legendParams);
+
+        // Cria a imagem da legenda e insere no HTML
+        const img = document.createElement('img');
+        img.src = legendUrl;
+        img.alt = 'Legenda:';
+        
+        const legendContainer = document.getElementById('legend-container');
+        legendContainer.innerHTML = '';  // Limpar qualquer conteúdo anterior
+        legendContainer.appendChild(img);  // Adicionar a imagem da legenda ao container
+        }
+
+        // Chama a função para carregar a legenda
+        loadLegend();
+    
+
+    }
+
+
+    // Exibe as coordenadas do cursor
+    map.on('mousemove', e => {
+        document.getElementById("coordinates-display").textContent = `Posição do Cursor: Lat ${e.latlng.lat.toFixed(6)}, Lng ${e.latlng.lng.toFixed(6)}`;
+    });
+
+    // Evento de clique para exibir informações detalhadas da camada WMS
+    map.on('click', e => {
+        if (!currentLayer) return alert("Por favor, selecione uma camada primeiro.");
+
+        const bounds = map.getBounds();
+        const { x: width, y: height } = map.getSize();
+        const i = Math.floor(e.containerPoint.x), j = Math.floor(e.containerPoint.y);
+
+        const getFeatureInfoUrl = `${wmsBaseUrl}SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&` +
+            `BBOX=${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}` +
+            `&CRS=EPSG:4326&WIDTH=${width}&HEIGHT=${height}&LAYERS=${currentLayer.wmsParams.layers}` +
+            `&QUERY_LAYERS=${currentLayer.wmsParams.layers}&INFO_FORMAT=application/json&I=${i}&J=${j}`;
+
+        fetch(getFeatureInfoUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (geoJsonLayer) map.removeLayer(geoJsonLayer);
+
+                if (data.features && data.features.length > 0) {
+                    geoJsonLayer = L.geoJSON(data.features[0], {
+                        style: { color: 'red', weight: 5, opacity: 1, fillOpacity: 0.5 },
+                        pane: 'geoJsonPane'
+                    }).addTo(map);
+
+                    const propertiesHTML = "<strong>Lista de Atributos:</strong><br>" +
+                        Object.entries(data.features[0].properties).map(([k, v]) => `<strong>${k}</strong>: ${v}`).join("<br>");
+
+                    L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent(propertiesHTML).openOn(map);
+                } else {
+                    L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent("Nenhuma feição encontrada.").openOn(map);
+                }
+            })
+            .catch(console.error);
+    });
+
+    // Ajusta a opacidade da camada WMS e da camada GeoJSON
+    document.getElementById("opacitySlider").addEventListener("input", function () {
+        const opacity = this.value;
+
+        // Apply opacity to WMS layer if it exists
+        if (currentLayer) currentLayer.setOpacity(opacity);
+
+        // Apply opacity to GeoJSON layer if it exists
+        if (geoJsonLayer) {
+            geoJsonLayer.eachLayer(function (layer) {
+                // Update both stroke and fill opacity for GeoJSON features
+                layer.setStyle({
+                    opacity: opacity,         // For borders/lines
+                    fillOpacity: opacity/2      // For polygon fills
+                });
+            });
+        }
+    });
+
+
+    // Fecha as sugestões ao clicar fora do campo de pesquisa
+        document.addEventListener("click", e => {
+        const searchBox = document.getElementById("layerAddressSearch");
+        const suggestionsBox = document.getElementById("suggestions");
+        
+        if (searchBox && !searchBox.contains(e.target)) {
+            suggestionsBox.classList.remove("show");
+            document.getElementById("pesquisa").classList.remove("show");
+        }
+    });
+
+
+// Função para limpar as camadas e o marcador
+function clearLayers() {
+    // Remove o marcador atual se ele existir
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null; // Limpa a referência
+    }
+
+    // Remove a camada WMS, se existir
+    if (currentLayer) {
+        map.removeLayer(currentLayer);
+        currentLayer = null;
+    }
+
+    // Remove a camada GeoJSON, se existir
+    if (geoJsonLayer) {
+        map.removeLayer(geoJsonLayer);
+        geoJsonLayer = null;
+    }
+
+    // Redefine o slider de opacidade para o valor padrão (1)
+    document.getElementById("opacitySlider").value = 1;
+
+    // Limpa o nome da camada exibido
+    document.getElementById("current-layer-name").textContent = "Adicione uma Camada";
+
+    // Limpa o parâmetro da URL para 'layerName'
+    const url = new URL(window.location);
+    url.searchParams.delete('layerName');
+    window.history.pushState({}, '', url);
+
+    // Limpa o conteúdo da legenda
+    const legendContainer = document.getElementById('legend-container');
+    legendContainer.innerHTML = '';  // Remove qualquer conteúdo da legenda
+
+    // Opcionalmente, limpa a caixa de pesquisa e sugestões
+    displaySuggestions(layers);
+    document.getElementById("layerSearch").value = '';
+    document.getElementById("suggestions").innerHTML = '';
+}
+
+    // Attach the clearLayers function to the Clear Layers button
+    document.getElementById("clearLayersBtn").addEventListener("click", clearLayers);
+
+</script>
+
+</body>
+</html>
