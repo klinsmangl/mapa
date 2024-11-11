@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visualizador de Teste</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="https://ide.sefin.fortaleza.ce.gov.br/favicon_io/favicon-32x32.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
@@ -85,7 +86,7 @@
                 </div>
                 <!-- Coordinates display below layer info -->
             <div id="rodape" class="position-absolute bottom-0 start-50 translate-middle-x">
-                <span id="coordinates-display">Posição do Cursor: N/A </span><span id="zoom-display">, Zoom: 10</span>
+                <span id="coordinates-display">Posição do Cursor: N/A </span><span id="zoom-display">, Zoom: 12</span>
             </div>
             </div>
         </div> <!-- End of col-md-12 -->
@@ -110,21 +111,16 @@
     
 
 <script>
-    // Inicializa o mapa e define a posição inicial e o nível de zoom
+    // Mapa inicial
     const map = L.map('map', {
         minZoom: 8,
         maxZoom: 22,
         zoomControl: false
-    }).setView([-3.71722, -38.5434], 10);
-
-    // Adiciona controle de escala ao mapa
+    }).setView([-3.78, -38.54], 12);
+    
     L.control.scale().addTo(map);
 
-    // Atualiza o indicador de zoom sempre que o nível de zoom mudar
-    map.on('zoomend', () => {
-        document.getElementById('zoom-display').textContent = `, Zoom: ${map.getZoom()}`;
-    });
-
+// Define as camadas de base
     var baselayers = {
     "Google": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
         maxZoom: 22
@@ -132,24 +128,54 @@
     "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 22
     }),
-    "Ortofoto": L.tileLayer.wms     ('https://geoserver.sefin.fortaleza.ce.gov.br/geoserver/IMAGEAMENTO/wms', {
-    layers: 'IMAGEAMENTO:ortofoto_2016',
-    format: 'image/png',
-    transparent: true,
-    minNativeZoom:11,
-    maxZoom: 22
-    })
-}
+    "Ortofoto": L.layerGroup([
+        L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 22
+        }),
+        L.tileLayer.wms('https://geoserver.sefin.fortaleza.ce.gov.br/geoserver/wms?', {
+            layers: 'IMAGEAMENTO:ortofoto_2016',
+            format: 'image/png',
+            transparent: true,
+            maxZoom: 22
+        })
+    ])
+    };
 
+    var overlays = {};
 
-var overlays = {};
+    L.control.layers(baselayers, overlays, {
+        position: 'bottomright'  // Move the control to the bottom-right corner
+    }).addTo(map);
 
-L.control.layers(baselayers, overlays, {
-    position: 'bottomright'  // Move the control to the bottom-right corner
-}).addTo(map);;
+    // Mapa carregado por padrao
+    baselayers["Google"].addTo(map);
 
-// Corrected: Use 'baselayers' instead of 'baseLayers'
-baselayers["Google"].addTo(map);
+    // modifica o estilo da caixa para usar bootstrap
+    var controlContainer = document.querySelector('.leaflet-control-layers');
+    controlContainer.classList.add('card');  // Adding a subtle shadow for depth
+
+    // Modifica para melhor legibilidade
+    var baseLayerList = controlContainer.querySelector('.leaflet-control-layers-base');
+    baseLayerList.classList.add('list-group', 'list-group-flush', 'border-0');  // Clean list styling with no border
+
+    // Adiciona classes ao items da lista de camadas
+    var baseLayerItems = baseLayerList.querySelectorAll('label');
+    baseLayerItems.forEach(function(item) {
+        item.classList.add('list-group-item', 'list-group-item-action');  // Padding for easier touch targets
+        item.style.cursor = 'pointer';  // Pointer cursor for better interactivity
+    });
+
+    // Define o texto para ficar mais visivel
+    var baseLayerTexto = baseLayerList.querySelectorAll('span');
+    baseLayerTexto.forEach(function(span) {
+        span.classList.add('h6', 'text-dark');  // Stronger contrast for better legibility
+    });
+
+// Final da secao de base layers
+    // Atualiza o indicador de zoom sempre que o nível de zoom mudar
+    map.on('zoomend', () => {
+        document.getElementById('zoom-display').textContent = `, Zoom: ${map.getZoom()}`;
+    });
 
     // Define a ordem das camadas usando o z-index
     map.createPane('wmsPane').style.zIndex = 650;
@@ -175,91 +201,104 @@ baselayers["Google"].addTo(map);
         }
     }
 
-    // Função para exibir as camadas filtradas no dropdown
-    function displaySuggestions(filteredLayers) {
-    const suggestions = document.getElementById("suggestions");
-    suggestions.innerHTML = ''; // Clear previous suggestions
-    
+    // Function to display filtered layers in the dropdown
+function displaySuggestions(filteredLayers) {
+    const suggestionsList = document.getElementById("suggestions");
+    suggestionsList.innerHTML = ''; // Clear previous suggestions
+
+    // Create a DocumentFragment to batch insert suggestions
+    const fragment = document.createDocumentFragment();
+
     filteredLayers.forEach(layer => {
-        const name = layer.querySelector("Name").textContent;
-        const title = layer.querySelector("Title").textContent;
+        const layerName = layer.querySelector("Name").textContent;
+        const layerTitle = layer.querySelector("Title").textContent;
         
-        const item = document.createElement("a");
-        item.className = "dropdown-item";
-        item.href = "#";
-        item.textContent = title;
-
-        // Create a function to handle the event
-        function handleClickOrTap(event) {
-            event.preventDefault(); // Prevent default behavior (e.g., following the href)
-            selectLayer(name, title);
-        }
-
-        // Attach both event listeners
-        item.addEventListener('click', handleClickOrTap); // Mouse click
-        item.addEventListener('touchstart', handleClickOrTap); // Touch events (for mobile/tablet)
-
-        // Append item to suggestions list
-        suggestions.appendChild(item);
+        const suggestionItem = document.createElement("a");
+        suggestionItem.className = "dropdown-item";
+        suggestionItem.href = "#";
+        suggestionItem.textContent = layerTitle;
+        suggestionItem.dataset.layerName = layerName; // Store data attributes for delegation
+        
+        fragment.appendChild(suggestionItem);
     });
+
+    // Append all items at once
+    suggestionsList.appendChild(fragment);
+
+    // Event delegation for handling clicks
+    suggestionsList.addEventListener("click", (event) => {
+        if (event.target.classList.contains("dropdown-item")) {
+            event.preventDefault();
+            const layerName = event.target.dataset.layerName;
+            const layerTitle = event.target.textContent;
+            selectLayer(layerName, layerTitle);
+        }
+    }, { once: true }); // Use { once: true } if suggestions are static per call, otherwise remove this option
 }
 
-// Função de busca e filtro de camadas
-// Fetch available WMS layers
 
-// Fetch available WMS layers
+// Função de busca e filtro de camadas
 fetchGetCapabilities().then(() => {
+    // Exibe todas as camadas WMS disponíveis na lista de sugestões
     displaySuggestions(layers);
-    
-    // Reference the combined search input
-    const searchBox = document.getElementById("layerAddressSearch");
-    const spinner = document.getElementById("spinner");
-    let debounceTimer;
+
+    // Verifica se há parâmetro de camada na URL e, se sim, seleciona a camada
+    const layerNameFromUrl = getUrlParameter("layerName");
+    if (layerNameFromUrl) {
+        const selectedLayer = layers.find(layer => layer.querySelector("Name").textContent === layerNameFromUrl);
+        if (selectedLayer) {
+            const layerTitle = selectedLayer.querySelector("Title").textContent;
+            selectLayer(layerNameFromUrl, layerTitle);
+        }
+    }
+
+    // Variáveis para lidar com a busca de camadas e endereços
+    const searchInput = document.getElementById("layerAddressSearch");
+    const spinnerElement = document.getElementById("spinner");
+    let debounceTimeoutId = null;
     let currentRequest = null;
 
-    searchBox.addEventListener("input", () => {
-        const searchTerm = searchBox.value.trim();
-        
-        // Clear previous debounce timer and cancel previous request if any
-        clearTimeout(debounceTimer);
-        if (currentRequest) {
-            currentRequest.abort();
-            currentRequest = null;
-        }
+    // Função para lidar com a busca de camadas e endereços
+    searchInput.addEventListener("input", handleSearchInput);
 
-        if (searchTerm.startsWith(">")) {
-            // Show spinner and debounce the request for address search
-            spinner.style.display = "block";
-            debounceTimer = setTimeout(() => {
-                const addressQuery = searchTerm.slice(1).trim(); // Remove ">" and trim whitespace
-                if (addressQuery.length >= 2) {
-                    performAddressSearch(addressQuery);
-                } else {
-                    spinner.style.display = "none"; // Hide spinner if query is too short
-                }
-            }, 1000); // 1 second debounce delay
-        } else {
-            // Layer search (immediate filtering, no debounce)
-            spinner.style.display = "none"; // Hide spinner for layer search
-            const filteredLayers = layers.filter(layer =>
-                layer.querySelector("Title").textContent.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            displaySuggestions(filteredLayers);
-        }
-    });
+    function handleSearchInput() {
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    clearTimeout(debounceTimeoutId);
+    if (currentRequest) currentRequest.abort();
+
+    const isAddressSearch = searchTerm.startsWith(">");
+    spinnerElement.style.display = isAddressSearch ? "block" : "none";
+
+    if (isAddressSearch) {
+        debounceTimeoutId = setTimeout(async () => {
+            const addressQuery = searchTerm.slice(1).trim();
+            if (addressQuery.length >= 2) {
+                await performAddressSearch(addressQuery);
+            } else {
+                spinnerElement.style.display = "none";
+            }
+        }, 500);
+    } else {
+        const filteredLayers = layers.filter(layer => 
+            layer.querySelector("Title").textContent.toLowerCase().includes(searchTerm)
+        );
+        displaySuggestions(filteredLayers);
+    }
+}
 });
 
-// Function for address search (moved here)
-function performAddressSearch(query) {
-    const api = `https://nominatim.openstreetmap.org/search?format=geojson&q=${encodeURI(query)}`;
 
-    // Abortable fetch for cancelling previous requests
-    currentRequest = new AbortController();
-    fetch(api, { signal: currentRequest.signal })
+// Funcao para Geocodificacao
+function performAddressSearch(query) {
+    const apiUrl = `https://nominatim.openstreetmap.org/search?format=geojson&q=${encodeURIComponent(query)}`;
+
+    // Create an AbortController to cancel previous requests
+    const abortController = new AbortController();
+    fetch(apiUrl, { signal: abortController.signal })
         .then(response => response.json())
         .then(data => {
-            const suggestions = document.getElementById("suggestions");
-            suggestions.innerHTML = data.features.map(feature => `
+            const suggestionsList = document.getElementById("suggestions");
+            suggestionsList.innerHTML = data.features.map(feature => `
                 <li class="dropdown-item" onclick="selectAddress(${feature.geometry.coordinates[1]}, ${feature.geometry.coordinates[0]}, '${feature.properties.display_name}')">
                     ${feature.properties.display_name}
                 </li>
@@ -271,44 +310,48 @@ function performAddressSearch(query) {
             }
         })
         .finally(() => {
-            spinner.style.display = "none"; // Hide spinner once request completes
-            currentRequest = null;
+            document.getElementById("spinner").style.display = "none"; // Hide spinner once request completes
         });
 }
 
 // Function to handle address selection
 let currentMarker = null; // Variável para armazenar o marcador atual
 
-// Função para selecionar o endereço e adicionar o marcador
-function selectAddress(lat, lng, displayName) {
-    // Movimenta o mapa para a localização especificada
-    map.flyTo([lat, lng], 18);
+// Function to select the address and add the marker
+function selectAddress(latitude, longitude, displayName) {
+    // Move the map to the specified location
+    map.flyTo([latitude, longitude], 18);
 
-    // Se já existir um marcador, removê-lo antes de adicionar o novo
+    // Remove existing marker, if any, before adding the new one
     if (currentMarker) {
         map.removeLayer(currentMarker);
     }
 
-    // Cria o novo marcador
-    currentMarker = L.marker([lat, lng], { title: displayName });
-    
-    // Adiciona o marcador ao mapa e exibe o popup
+    // Create a new marker
+    currentMarker = L.marker([latitude, longitude], { title: displayName });
+
+    // Add the marker to the map and display the popup
     currentMarker.addTo(map).bindPopup(displayName).openPopup();
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+    const layerNameFromUrl = getUrlParameter("layerName");
+    if (layerNameFromUrl) {
+        const selectedLayer = layers.find(layer => layer.querySelector("Name").textContent === layerNameFromUrl);
+        if (selectedLayer) {
+            const layerTitle = selectedLayer.querySelector("Title").textContent;
+            selectLayer(layerNameFromUrl, layerTitle);
+        }
+    }
+});
 
-    //função de geocode-------------------------------------------------------------------------------------------------
-
-    //-------------------------------------------------------------------------------------------------
-
-    // Helper function to get URL parameters
-    function getUrlParameter(name) {
+function getUrlParameter(name) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(name);
     }
 
     // Modify selectLayer function to update URL with layerName
-    function selectLayer(layerName, layerTitle) {
+function selectLayer(layerName, layerTitle) {
         // Update the URL with the layerName parameter
         const url = new URL(window.location);
         url.searchParams.set('layerName', layerName);
@@ -331,11 +374,6 @@ function selectAddress(lat, lng, displayName) {
             maxZoom: 22,
             pane: 'wmsPane'
         }).addTo(map);
-
-        map.fitBounds([
-            [parseFloat(bbox.querySelector("southBoundLatitude").textContent), parseFloat(bbox.querySelector("westBoundLongitude").textContent)],
-            [parseFloat(bbox.querySelector("northBoundLatitude").textContent), parseFloat(bbox.querySelector("eastBoundLongitude").textContent)]
-        ]);
 
         document.getElementById("current-layer-name").textContent = layerTitle;
     
@@ -382,39 +420,75 @@ function selectAddress(lat, lng, displayName) {
     });
 
     // Evento de clique para exibir informações detalhadas da camada WMS
+    // quando o usuário clica no mapa.
     map.on('click', e => {
-        if (!currentLayer) return alert("Por favor, selecione uma camada primeiro.");
+        // Verifica se uma camada WMS foi selecionada
+        if (!currentLayer) return alert("Nenhuma camada selecionada.");
 
+        // Obtém os limites da visão atual do mapa
         const bounds = map.getBounds();
+
+        // Obtém a largura e altura do mapa em pixels
         const { x: width, y: height } = map.getSize();
+
+        // Obtém as coordenadas do clique em pixels
         const i = Math.floor(e.containerPoint.x), j = Math.floor(e.containerPoint.y);
 
+        // Constroi a URL da requisição GetFeatureInfo do WMS
+        // com os parâmetros de BBOX, WIDTH, HEIGHT, LAYERS, QUERY_LAYERS,
+        // INFO_FORMAT, I e J.
         const getFeatureInfoUrl = `${wmsBaseUrl}SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&` +
             `BBOX=${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}` +
             `&CRS=EPSG:4326&WIDTH=${width}&HEIGHT=${height}&LAYERS=${currentLayer.wmsParams.layers}` +
             `&QUERY_LAYERS=${currentLayer.wmsParams.layers}&INFO_FORMAT=application/json&I=${i}&J=${j}`;
 
+        // Faz uma requisição GET para a URL construída
         fetch(getFeatureInfoUrl)
             .then(response => response.json())
             .then(data => {
+                // Remove a camada GeoJSON anterior, se existir
                 if (geoJsonLayer) map.removeLayer(geoJsonLayer);
 
+                // Verifica se a resposta do WMS contém feições
                 if (data.features && data.features.length > 0) {
+                    // Cria uma camada GeoJSON com a feição encontrada
                     geoJsonLayer = L.geoJSON(data.features[0], {
                         style: { color: 'red', weight: 5, opacity: 1, fillOpacity: 0.5 },
                         pane: 'geoJsonPane'
                     }).addTo(map);
 
-                    const propertiesHTML = "<strong>Lista de Atributos:</strong><br>" +
-                        Object.entries(data.features[0].properties).map(([k, v]) => `<strong>${k}</strong>: ${v}`).join("<br>");
+                    // Constroi o conteúdo da popup com a lista de atributos
+                    // Gerando o HTML da Tabela com Bootstrap
+                    const propertiesHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <strong>Lista de Atributos</strong>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped">
+                                <tbody>
+                                    ${Object.entries(data.features[0].properties).map(
+                                        ([key, value]) => `
+                                        <tr>
+                                            <td><strong>${key}</strong></td>
+                                            <td>${value}</td>
+                                        </tr>`
+                                    ).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
 
+                    // Abre a popup com o conteúdo
                     L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent(propertiesHTML).openOn(map);
                 } else {
+                    // Se nenhuma feição foi encontrada, exibe uma mensagem de erro
                     L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent("Nenhuma feição encontrada.").openOn(map);
                 }
             })
             .catch(console.error);
     });
+
 
     // Ajusta a opacidade da camada WMS e da camada GeoJSON
     document.getElementById("opacitySlider").addEventListener("input", function () {
