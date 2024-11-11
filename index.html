@@ -12,102 +12,66 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tomickigrzegorz/autocomplete@2.0.2/dist/css/autocomplete.min.css"/>
     <script src="https://cdn.jsdelivr.net/gh/tomickigrzegorz/autocomplete@2.0.2/dist/js/autocomplete.min.js"></script>
-<style>
-    /* Make the map fill the entire viewport */
-    #map {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 100vh; /* Full viewport height */
-        z-index: -1; /* Ensure map stays in the background */
-    }
-
-    .leaflet-popup-content-wrapper {
-        background-color: rgba(255, 255, 255, .8);
-    }
-</style>
-
 </head>
-<body>
-<!-- Container for the entire page -->
-<div class="container my-3 col-lg-8 min-vh-98 d-flex flex-column justify-content-between">
-    <!-- Centralized row with spacing -->
-    <div class="row justify-content-center w-100">
-        <!-- Column that adapts to medium and larger screens -->
-        <div class="col-md-12">
-            <!-- Card for search section to create visual separation -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <!-- Clear Layers Button and Search Toggle -->
-                        <span>
-                            <button type="button" class="btn btn-light" data-bs-toggle="offcanvas" data-bs-target="#offcanvasLegend">
-                                <i class="bi bi-list"></i>
-                            </button>
-                            <button class="btn btn-light" type="button" data-bs-toggle="collapse" data-bs-target="#pesquisa">
-                                <i class="bi bi-search"></i>
-                            </button>
-                        </span>
-                        
-                        <!-- Title: "Adicione uma Camada" -->
-                        <h4 class="card-title" id="current-layer-name">Adicione uma Camada</h4>
+<body class="d-flex flex-column min-vh-100">
 
-                        <!-- Clear Layers Button -->
-                        <button id="clearLayersBtn" type="button" class="btn btn-danger">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
 
-                    <!-- Search input field within a dropdown context -->
-                    
-                <!-- Update the search input field to add the spinner icon -->
-                <div class="collapse" id="pesquisa">
-                    <div class="dropdown position-relative">
-                        <input type="text" id="layerAddressSearch" class="form-control my-3" placeholder="Search for a layer or '> Address'" aria-label="Layer or Address search" data-bs-toggle="dropdown" aria-expanded="false">
-                        <!-- Spinner for loading indication -->
-                        <div id="spinner" class="spinner-border text-primary position-absolute" role="status" style="display: none; top: 10px; right: 20px; width: 1rem; height: 1rem;">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <!-- Suggestions dropdown -->
-                        <ul class="dropdown-menu w-100" id="suggestions" aria-labelledby="layerAddressSearch" style="max-height: 400px; overflow-y: auto;"></ul>
-                    </div>
+<div class="card position-fixed top-0 start-50 translate-middle-x col-12 col-md-8 col-lg-6 mt-2 z-2">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+            <!-- legenda e pesquisa -->
+            <span>
+                <button type="button" class="btn btn-light" data-bs-toggle="offcanvas" data-bs-target="#offcanvasLegend">
+                    <i class="bi bi-list"></i>
+                </button>
+                <button class="btn btn-light" type="button" data-bs-toggle="collapse" data-bs-target="#pesquisa">
+                    <i class="bi bi-search"></i>
+                </button>
+            </span>
+
+            <!-- titulo da camada -->
+            <h4 class="text-center card-title col-8 multiline-truncate" id="current-layer-name">Adicione uma Camada</h4>
+
+            <!-- botao de limpar -->
+            <button id="clearLayersBtn" type="button" class="btn btn-danger">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+
+        <!-- caixa de pesquisa e menu dropdown -->
+        <div class="collapse" id="pesquisa">
+            <div class="dropdown position-relative">
+                <input type="text" id="layerAddressSearch" class="form-control my-3" placeholder="Search for a layer or '> Address'" aria-label="Layer or Address search" data-bs-toggle="dropdown" aria-expanded="false">
+                <!-- spinner de carregamento -->
+                <div id="spinner" class="spinner-border text-primary position-absolute" role="status" style="display: none; top: 10px; right: 20px; width: 1rem; height: 1rem;">
+                    <span class="visually-hidden">Loading...</span>
                 </div>
-
-                </div>
+                <!-- lista de sugestoes -->
+                <ul class="dropdown-menu w-100" id="suggestions" aria-labelledby="layerAddressSearch" style="max-height: 400px; overflow-y: auto;"></ul>
             </div>
-            <!-- Slider de Opacidade-->
-            <div id="layer-info position-relative">
-                <div class="bg-transparent">
-                    <div>
-                        <input type="range" class="form-range" id="opacitySlider" min="0" max="1" step="0.1" value="1">
-                    </div>
-                </div>
-                <!-- Coordinates display below layer info -->
-            <div id="rodape" class="position-absolute bottom-0 start-50 translate-middle-x">
-                <span id="coordinates-display">Posição do Cursor: N/A </span><span id="zoom-display">, Zoom: 12</span>
-            </div>
-            </div>
-        </div> <!-- End of col-md-12 -->
-    </div> <!-- End of row -->
-</div> <!-- End of container -->
- 
+        </div>
+    </div>
+</div>
 
-    <!-- Map container, responsive full width with height -->
-    <div id="map" class="container-fluid"></div>
-
-  <!-- Offcanvas -->
-  <div class="offcanvas offcanvas-start bg-light.bg-gradient" tabindex="-1" id="offcanvasLegend" aria-labelledby="offcanvasLegendLabel">
+<!-- container do mapa -->
+<div id="map" class="container-fluid flex-grow-1 z-0"></div>
+<!-- Rodape -->
+<div id="rodape" class="d-flex justify-content-between bg-dark text-light multiline-truncate">
+    <div><span id="coordinates-display">Posição do Cursor: N/A </span><span id="zoom-display">, Zoom: 12</span></div>
+    <div id="layer-info" class="d-flex align-items-center px-4">
+        <input type="range" class="form-range" id="opacitySlider" min="0" max="1" step="0.1" value="1">
+    </div>
+</div>
+<!-- Offcanvas -->
+<div class="offcanvas offcanvas-start bg-light.bg-gradient" tabindex="-1" id="offcanvasLegend">
     <div class="offcanvas-header">
-      <h5 class="offcanvas-title" id="offcanvasLegendLabel">Legenda</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <h5 class="offcanvas-title" id="offcanvasLegendLabel">Legenda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body">
-      <div id="legend-container">
-      </div>
+        <div id="legend-container"></div>
     </div>
-  </div>
+</div>
     
 
 <script>
