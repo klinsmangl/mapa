@@ -406,6 +406,12 @@ function selectLayer(layerName, layerTitle) {
             `&CRS=EPSG:4326&WIDTH=${width}&HEIGHT=${height}&LAYERS=${currentLayer.wmsParams.layers}` +
             `&QUERY_LAYERS=${currentLayer.wmsParams.layers}&INFO_FORMAT=application/json&I=${i}&J=${j}`;
 
+        // Verifica se um menu de contexto está visível
+        const contextMenuVisible = document.getElementById('context-menu') && document.getElementById('context-menu').offsetParent !== null;
+
+        // Se um menu de contexto estiver visível, ignora o clique
+        if (contextMenuVisible) return;
+
         // Faz uma requisição GET para a URL construída
         fetch(getFeatureInfoUrl)
             .then(response => response.json())
@@ -529,6 +535,63 @@ function clearLayers() {
 
     // Attach the clearLayers function to the Clear Layers button
     document.getElementById("clearLayersBtn").addEventListener("click", clearLayers);
+
+    // Fun o para copiar coordenadas para a  rea de transfer ncia
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            showModal('Coordenadas copiadas!');
+        }).catch((err) => {
+            console.error('Erro ao copiar para  rea de transfer ncia', err);
+        });
+    }
+
+    // Fun o para mostrar um modal com uma mensagem
+    function showModal(message) {
+        const modalEl = document.createElement('div');
+        modalEl.className = 'modal fade';
+        modalEl.id = 'copyModal';
+        modalEl.innerHTML = `<div class="modal-dialog modal-dialog-top"><div class="modal-content"><div class="modal-body">${message}</div></div></div>`;
+        document.body.appendChild(modalEl);
+
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        setTimeout(() => {
+            modal.hide();
+            modalEl.remove();
+        }, 1000);
+    }
+
+    // Fun o para remover o menu de contexto
+    function removeContextMenu() {
+        const existingMenus = document.querySelectorAll('#context-menu');
+        existingMenus.forEach(menu => menu.remove());
+    }
+
+    // Evento de clique com bot o direito para abrir o menu de contexto
+    map.on('contextmenu', (e) => {
+        const contextMenuHTML = `
+            <div id="context-menu" class="position-absolute p-3 bg-white rounded shadow-lg" style="top: ${e.containerPoint.y}px; left: ${e.containerPoint.x}px; z-index: 1000;">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item p-2" onmouseover="this.style.backgroundColor='#f5f5f5'" onmouseout="this.style.backgroundColor='white'"><i class="bi bi-pin-map-fill"></i>&nbsp<a href="#" class="text-decoration-none text-dark h-5" onclick="copyToClipboard('${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}'); return false;">Copiar Coordenadas</a></li>
+                    <li class="list-group-item p-2" onmouseover="this.style.backgroundColor='#f5f5f5'" onmouseout="this.style.backgroundColor='white'"><i class="bi bi-person-walking"></i>&nbsp<a href="https://www.google.com/maps?q=&layer=c&cbll=${e.latlng.lat},${e.latlng.lng}" target="_blank" class="text-decoration-none text-dark h-5">Abrir no Google Street View</a></li>
+                </ul>
+            </div>
+        `;
+
+        // Remove o menu de contexto anterior, se existir
+        removeContextMenu();
+
+        // Adiciona o menu de contexto ao mapa
+        const contextMenuEl = document.createElement('div');
+        contextMenuEl.innerHTML = contextMenuHTML;
+        document.getElementById('map').appendChild(contextMenuEl);
+
+        // Fecha o menu se clicar fora dele
+        setTimeout(() => { // Timeout para evitar fechamento imediato ao clicar no pr prio menu
+            document.addEventListener('click', removeContextMenu);
+        }, 10);
+    });
 
 </script>
 
