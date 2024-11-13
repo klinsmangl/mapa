@@ -387,7 +387,7 @@ function selectLayer(layerName, layerTitle) {
     // quando o usuário clica no mapa.
     map.on('click', e => {
         // Verifica se uma camada WMS foi selecionada
-        if (!currentLayer) return alert("Nenhuma camada selecionada.");
+        if (!currentLayer) return;
 
         // Obtém os limites da visão atual do mapa
         const bounds = map.getBounds();
