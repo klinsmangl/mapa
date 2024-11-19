@@ -84,6 +84,10 @@
     
     L.control.scale().addTo(map);
 
+//Define as varieveis globais da layer OMI
+    let viewCompletaOmi = false; // Variável para controlar se a camada OMICompleta esta visivel
+    const omiLayerName = "OMI:view_omi_completa"; // Nome da camada OMICompleta
+
 // Define as camadas de base
     var baselayers = {
     "Google": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
@@ -309,6 +313,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+    const toggleButton = document.createElement("button");
+    toggleButton.id = "toggleViewCompletaOmi";
+    toggleButton.className = "btn btn-primary position-fixed top-0 end-0 m-3";
+    toggleButton.style.zIndex = 1000;
+    toggleButton.textContent = "OMI: OFF";
+    toggleButton.onclick = toggleViewCompletaOmi;
+
+    document.body.appendChild(toggleButton);
+});
+
 function getUrlParameter(name) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(name);
@@ -377,6 +392,34 @@ function selectLayer(layerName, layerTitle) {
 
     }
 
+    // Função para alternar a visibilidade da camada OMICompleta
+    function toggleViewCompletaOmi() {
+        viewCompletaOmi = !viewCompletaOmi;
+        const toggleButton = document.getElementById("toggleViewCompletaOmi");
+        toggleButton.textContent = viewCompletaOmi ? "OMI: ON" : "OMI: OFF";
+
+        if (viewCompletaOmi) {
+            loadOmiLayer();
+        } else {
+            clearLayers();
+        }
+    }
+
+        // Função para carregar a camada OMICompleta
+    function loadOmiLayer() {
+        if (currentLayer) map.removeLayer(currentLayer);
+        if (geoJsonLayer) map.removeLayer(geoJsonLayer);
+
+        currentLayer = L.tileLayer.wms(`${wmsBaseUrl}request=GetMap`, {
+            layers: omiLayerName,
+            format: 'image/png',
+            transparent: true,
+            maxZoom: 22,
+            pane: 'wmsPane'
+        }).addTo(map);
+
+        document.getElementById("current-layer-name").textContent = "OMI: View Completa";
+    }
 
     // Exibe as coordenadas do cursor
     map.on('mousemove', e => {
@@ -427,38 +470,71 @@ function selectLayer(layerName, layerTitle) {
                         pane: 'geoJsonPane'
                     }).addTo(map);
 
-                    // Constroi o conteúdo da popup com a lista de atributos
-                    // Gerando o HTML da Tabela com Bootstrap
-                    const propertiesHTML = `
-                    <div class="card">
-                        <div class="card-header">
-                            <strong>Lista de Atributos</strong>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-striped">
-                                <tbody>
-                                    ${Object.entries(data.features[0].properties).map(
-                                        ([key, value]) => `
-                                        <tr>
-                                            <td><strong>${key}</strong></td>
-                                            <td>${value}</td>
-                                        </tr>`
-                                    ).join("")}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>`;
+                    // Verifica se a opção viewCompletaOmi está ativa
+                    if (viewCompletaOmi) {
+                        // Constroi o HTML personalizado para o popup
+                        const properties = data.features[0].properties;
+                        const popupHTML = `
+                        <div class="card" style="width: 18rem;">
+                          <div class="card-header" style="background-image: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0)), url('${properties.link_thumb}'); background-size: cover; height: 200px; background-position: center;">
+                            <h5 class="card-title text-white">${properties.nome_condominio || ''} ${properties.cartografia}</h5>
+                            <h6 class="card-subtitle mb-2 text-white">
+                              ${properties.endereco_completo || 'Endereço não disponível'}
+                            </h6>                          
+                          </div>
+                          <div class="card-body">
+               
+                            <h5 class="card-text text-success">R$ ${parseFloat(properties.preco_imovel).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
+                            <h6 class="card-subtitle mb-2 text-muted">${properties.tipologia || 'Tipologia não disponível'}</h6>
 
-                    // Abre a popup com o conteúdo
-                    L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent(propertiesHTML).openOn(map);
+                            <p class="card-text">
+                              ${properties.cadastrado_grpfor ? `<i class="bi bi-check-circle text-success"></i>` : `<i class="bi bi-x-circle text-danger"></i>`}
+                              ${properties.cadastrado_grpfor ? 'Cadastrado GPFOR' : 'Não cadastrado GPFOR'}
+                            </p>
+                            <p class="card-text">
+                              ${properties.revisado_omi ? `<i class="bi bi-check-circle text-success"></i>` : `<i class="bi bi-x-circle text-danger"></i>`}
+                              ${properties.revisado_omi ? 'Revisado OMI' : 'Não Revisado OMI'}
+                            </p>
+
+                            <div class="d-flex justify-content-between mt-3">
+                              <a href="${properties.link_sit}" class="btn btn-primary text-white flex-grow-1 mx-1 ${!properties.link_sit ? 'disabled' : ''}" style="transition: background-color 0.3s;" onmouseover="this.style.backgroundColor='#0056b3'" onmouseout="this.style.backgroundColor=''" role="button">SITFOR</a>
+                              <a href="${properties.link_omi}" class="btn btn-primary text-white flex-grow-1 mx-1 ${!properties.link_omi ? 'disabled' : ''}" style="transition: background-color 0.3s;" onmouseover="this.style.backgroundColor='#0056b3'" onmouseout="this.style.backgroundColor=''" role="button">OMI</a>
+                            </div>
+                          </div>
+                        </div>`;
+                        // Abre o popup com o conteúdo
+                        L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent(popupHTML).openOn(map);
+                    } else {
+                        // Constroi o conteúdo da popup com a lista de atributos padrão
+                        const propertiesHTML = `
+                        <div class="card" style="height: 250px; overflow-y: auto;">
+                            <div class="card-header">
+                                <strong>Lista de Atributos</strong>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped">
+                                    <tbody>
+                                        ${Object.entries(properties).map(
+                                            ([key, value]) => `
+                                            <tr>
+                                                <td><strong>${key}</strong></td>
+                                                <td>${value}</td>
+                                            </tr>`
+                                        ).join("")}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>`;
+                        // Abre a popup com o conteúdo padrão
+                        L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent(propertiesHTML).openOn(map);
+                    }
                 } else {
                     // Se nenhuma feição foi encontrada, exibe uma mensagem de erro
                     L.popup({ pane: 'popupPane' }).setLatLng(e.latlng).setContent("Nenhuma feição encontrada.").openOn(map);
                 }
             })
             .catch(console.error);
-    });
-
+        });
 
     // Ajusta a opacidade da camada WMS e da camada GeoJSON
     document.getElementById("opacitySlider").addEventListener("input", function () {
